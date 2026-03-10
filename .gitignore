@@ -3,3 +3,4 @@ node_modules/
 logs/
 *.log
 logs/*.json
+src/database/seed/superadmin.seed.js
