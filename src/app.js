@@ -12,6 +12,10 @@ if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
 
+app.get("/", (req, res) => {
+  res.send("EggATM Franchise API is running 🚀");
+});
+
 app.use("/api", routes);
 
 app.use(errorMiddleware);
