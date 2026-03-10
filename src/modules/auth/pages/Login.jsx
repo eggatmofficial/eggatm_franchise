@@ -60,59 +60,59 @@ export default function Login() {
       />
 
       {/* ===== CENTER CONTENT ===== */}
-    <div className="relative min-h-screen flex items-center justify-center px-4 py-6">
+      <div className="relative h-full flex items-center justify-center px-4">
 
         {/* LOGIN CARD */}
-       <div className="
-  w-full max-w-md
-  p-6 sm:p-10
-  rounded-3xl
-  bg-white/5
-  backdrop-blur-2xl
-  border border-white/10
-  shadow-[0_30px_80px_rgba(0,0,0,0.6)]
-">
+        <div className="
+          w-full max-w-md
+          p-8 sm:p-10
+          rounded-3xl
+          bg-white/5
+          backdrop-blur-2xl
+          border border-white/10
+          shadow-[0_30px_80px_rgba(0,0,0,0.6)]
+        ">
 
-  {/* Logo */}
-  <div className="flex justify-center mb-4 sm:mb-6">
-    <img
-      src={logo}
-      alt="Egg ATM"
-      className="h-10 sm:h-14 object-contain"
-    />
-  </div>
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <img src={logo} alt="Egg ATM" className="h-14 object-contain" />
+          </div>
 
-  {/* Title */}
-  <h2 className="text-2xl sm:text-3xl font-semibold text-white text-center">
-    Welcome Back
-  </h2>
+          {/* Title */}
+          <h2 className="text-3xl font-semibold text-white text-center">
+            Welcome Back
+          </h2>
 
-  <p className="text-gray-400 text-center mt-1 sm:mt-2 mb-6 sm:mb-8 text-sm sm:text-base">
-    Sign in to continue
-  </p>
+          <p className="text-gray-400 text-center mt-2 mb-8">
+            Sign in to continue
+          </p>
 
-  {/* FORM */}
-  <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          {/* FORM */}
+          <form onSubmit={handleSubmit} className="space-y-6">
 
-    <Input
-      label="Email Address"
-      name="email"
-      onChange={handleChange}
-    />
+            <Input
+              label="Email Address"
+              name="email"
+              onChange={handleChange}
+            />
 
-    <Input
-      label="Password"
-      type="password"
-      name="password"
-      onChange={handleChange}
-    />
+            <Input
+              label="Password"
+              type="password"
+              name="password"
+              onChange={handleChange}
+            />
 
-    <Button loading={loading}>
-      Sign In
-    </Button>
+            <Button loading={loading}>
+              Sign In
+            </Button>
 
-  </form>
-</div>
+          </form>
+
+          <p className="text-center text-xs text-gray-500 mt-6">
+            Secure • EGG! ATM Platform
+          </p>
+        </div>
       </div>
     </div>
   );
