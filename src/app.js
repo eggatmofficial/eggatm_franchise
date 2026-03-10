@@ -13,8 +13,12 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 app.get("/", (req, res) => {
-  res.send("EggATM Franchise API is running 🚀");
+  res.json({
+    status: "OK",
+    message: "EggATM Franchise API is running 🚀"
+  });
 });
+
 
 app.use("/api", routes);
 
