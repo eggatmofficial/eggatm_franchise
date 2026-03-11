@@ -517,7 +517,7 @@ export default function StaffBilling() {
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">
-                  Billing
+                  Billing Management
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500">
                   Manage and track bills
