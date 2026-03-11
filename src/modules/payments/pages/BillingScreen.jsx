@@ -1144,17 +1144,11 @@ export default function BillingScreen() {
       <body>
         <div class="bill-container">
           <div class="header">
-            <h1>🍽️ ${franchise.name || bill.franchiseName || 'Restaurant'}</h1>
+            <h1> ${franchise.name || bill.franchiseName || 'Restaurant'}</h1>
             <div class="franchise-code">Branch: ${franchise.franchiseCode || bill.franchiseCode || 'MAIN'}</div>
             <p>${franchise.address || '123 Food Street'}</p>
             <p>${franchise.city || 'City'}, ${franchise.state || 'State'}</p>
             <p>Tel: ${franchise.phone || '+91 98765 43210'}</p>
-          </div>
-
-          <div class="print-status">
-            <span class="badge ${bill.printStatus === 'printed' ? 'badge-printed' : 'badge-pending'}">
-              ${bill.printStatus === 'printed' ? '✓ PRINTED' : '⏳ PENDING PRINT'}
-            </span>
           </div>
 
           <div class="bill-details">
@@ -1169,18 +1163,6 @@ export default function BillingScreen() {
             <div>
               <span>Time:</span>
               <span>${date.toLocaleTimeString()}</span>
-            </div>
-            <div>
-              <span>Table:</span>
-              <span>${bill.tableNumber || bill.tableName || 'N/A'}</span>
-            </div>
-            <div>
-              <span>Guest:</span>
-              <span>${bill.guestName || 'Guest'}</span>
-            </div>
-            <div>
-              <span>Staff:</span>
-              <span>${bill.staffName || bill.generatedBy?.slice(-6) || 'N/A'}</span>
             </div>
           </div>
 
