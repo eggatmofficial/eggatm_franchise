@@ -68,142 +68,6 @@ exports.getStaffDashboard = async (user) => {
 };
 
 
-
-
-
-
-// exports.getFranchiseDashboard = async (franchiseId) => {
-
-//   const now = new Date();
-
-//   /* ================= DATE RANGES ================= */
-
-//   const todayStart = new Date();
-//   todayStart.setHours(0, 0, 0, 0);
-
-//   const weekStart = new Date();
-//   weekStart.setDate(now.getDate() - 7);
-
-//   const monthStart = new Date();
-//   monthStart.setMonth(now.getMonth() - 1);
-
-//   /* ================= FETCH COMPLETED ORDERS ================= */
-
-//   const orders = await Order.find({
-//     franchiseId,
-//     status: "completed"
-//   }).lean();
-
-//   /* ================= HELPERS ================= */
-
-//   const filterOrders = (startDate) =>
-//     orders.filter(o => new Date(o.createdAt) >= startDate);
-
-//   const calcRevenue = (filteredOrders) =>
-//     filteredOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-
-//   const calcProducts = (filteredOrders) => {
-
-//     const productMap = {};
-
-//     filteredOrders.forEach(order => {
-//       order.items.forEach(item => {
-
-//         if (!productMap[item.menuId]) {
-//           productMap[item.menuId] = {
-//             name: item.name,
-//             qty: 0
-//           };
-//         }
-
-//         productMap[item.menuId].qty += item.qty;
-//       });
-//     });
-
-//     const products = Object.values(productMap);
-
-//     return {
-//       topSelling: [...products]
-//         .sort((a, b) => b.qty - a.qty)
-//         .slice(0, 5),
-
-//       lowSelling: [...products]
-//         .sort((a, b) => a.qty - b.qty)
-//         .slice(0, 5),
-//     };
-//   };
-
-//   /* ================= FILTER DATA ================= */
-
-//   const todayOrders = filterOrders(todayStart);
-//   const weekOrders = filterOrders(weekStart);
-//   const monthOrders = filterOrders(monthStart);
-
-//   /* =====================================================
-//      ✅ YEARLY MONTHLY SALES (JAN → DEC)
-//      ===================================================== */
-
-//   const yearStart = new Date(now.getFullYear(), 0, 1);
-//   const yearEnd = new Date(now.getFullYear() + 1, 0, 1);
-
-//   const monthlySalesAgg = await Order.aggregate([
-//     {
-//       $match: {
-//         franchiseId,
-//         status: "completed",
-//         createdAt: {
-//           $gte: yearStart,
-//           $lt: yearEnd
-//         }
-//       }
-//     },
-//     {
-//       $group: {
-//         _id: { $month: "$createdAt" },
-//         totalRevenue: { $sum: "$totalAmount" }
-//       }
-//     },
-//     {
-//       $sort: { "_id": 1 }
-//     }
-//   ]);
-
-//   /* ===== FILL MISSING MONTHS ===== */
-
-//   const monthlyRevenue = Array(12).fill(0);
-
-//   monthlySalesAgg.forEach(m => {
-//     monthlyRevenue[m._id - 1] = m.totalRevenue;
-//   });
-
-//   const monthNames = [
-//     "Jan","Feb","Mar","Apr","May","Jun",
-//     "Jul","Aug","Sep","Oct","Nov","Dec"
-//   ];
-
-//   const monthlyChart = monthNames.map((month, index) => ({
-//     month,
-//     revenue: monthlyRevenue[index]
-//   }));
-
-//   /* ================= FINAL RESPONSE ================= */
-
-//   return {
-//     revenue: {
-//       dailyRevenue: calcRevenue(todayOrders),
-//       weeklyRevenue: calcRevenue(weekOrders),
-//       monthlyRevenue: calcRevenue(monthOrders),
-//     },
-
-//     monthlyChart, // ⭐ NEW CHART DATA
-
-//     dailyProducts: calcProducts(todayOrders),
-//     weeklyProducts: calcProducts(weekOrders),
-//     monthlyProducts: calcProducts(monthOrders),
-//   };
-// };
-
-
 const {
   getTodayRange,
   getYesterdayRange
@@ -288,25 +152,34 @@ exports.getFranchiseDashboard = async (franchiseId, query) => {
 
         /* SUMMARY */
 
-        summary:[
-          {
-            $group:{
-              _id:null,
-              totalSales:{ $sum:"$totalAmount" },
-              totalCost:{ $sum:"$totalCost" }
-            }
-          },
-          {
-            $project:{
-              _id:0,
-              totalSales:1,
-              totalCost:1,
-              totalProfit:{
-                $subtract:["$totalSales","$totalCost"]
-              }
-            }
-          }
-        ],
+       summary: [
+
+  { $unwind: "$items" },
+
+  {
+    $group:{
+      _id:null,
+      totalSales:{ $sum:"$totalAmount" },
+      totalCost:{
+        $sum:{
+          $multiply:["$items.costPrice","$items.qty"]
+        }
+      }
+    }
+  },
+
+  {
+    $project:{
+      _id:0,
+      totalSales:1,
+      totalCost:1,
+      totalProfit:{
+        $subtract:["$totalSales","$totalCost"]
+      }
+    }
+  }
+
+],
 
         /* PRODUCT SALES */
 
