@@ -98,6 +98,7 @@ exports.previewBill = async (tabId) => {
           menuId: i.menuId,
           name: i.name,
           price: i.price,
+          costPrice: i.costPrice,
           qty: 0,
           subtotal: 0
         };

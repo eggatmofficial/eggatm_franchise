@@ -3,6 +3,7 @@ const GuestTab = require("../guestTabs/guestTabs.model");
 const Session = require("../sessions/session.model");
 const Franchise = require("../franchise/franchise.model")
 const Bill = require("../billing/billing.model");
+const Menu = require("../menu/menu.model");
 
 
 exports.getStaffDashboard = async (user) => {
@@ -73,6 +74,206 @@ const {
   getYesterdayRange
 } = require("../../../src/common/utils/timeHelper")
 
+// exports.getFranchiseDashboard = async (franchiseId, query) => {
+
+//   const now = new Date()
+
+//   let startDate
+//   let endDate
+
+//   const today = getTodayRange()
+//   const yesterday = getYesterdayRange()
+
+//   /* CUSTOM DATE */
+
+//   if (query.startDate && query.endDate) {
+
+//     startDate = new Date(query.startDate)
+//     endDate = new Date(query.endDate)
+//     endDate.setHours(23,59,59,999)
+
+//   }
+
+//   /* YEAR FILTER (ex: ?year=2024) */
+
+//   else if (query.year) {
+
+//     const year = parseInt(query.year)
+
+//     startDate = new Date(year,0,1)
+//     endDate = new Date(year,11,31,23,59,59)
+
+//   }
+
+//   /* TYPE FILTER */
+
+//   else {
+
+//     const type = query.type || "today"
+
+//     if (type === "today") {
+//       startDate = today.start
+//       endDate = today.end
+//     }
+
+//     else if (type === "yesterday") {
+//       startDate = yesterday.start
+//       endDate = yesterday.end
+//     }
+
+//     else if (type === "monthly") {
+//       startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+//       endDate = now
+//     }
+
+//     else if (type === "yearly") {
+//       startDate = new Date(now.getFullYear(), 0, 1)
+//       endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
+//     }
+
+//   }
+
+//   console.log("FILTER RANGE:", startDate, endDate)
+
+//   const dashboard = await Order.aggregate([
+
+//     {
+//       $match:{
+//         franchiseId,
+//         status:"billed",
+//         createdAt:{
+//           $gte:startDate,
+//           $lte:endDate
+//         }
+//       }
+//     },
+
+//     {
+//       $facet:{
+
+//         /* SUMMARY */
+
+//        summary: [
+
+//   { $unwind: "$items" },
+
+//   {
+//     $group:{
+//       _id:null,
+//       totalSales:{ $sum:"$totalAmount" },
+//       totalCost:{
+//         $sum:{
+//           $multiply:["$items.costPrice","$items.qty"]
+//         }
+//       }
+//     }
+//   },
+
+//   {
+//     $project:{
+//       _id:0,
+//       totalSales:1,
+//       totalCost:1,
+//       totalProfit:{
+//         $subtract:["$totalSales","$totalCost"]
+//       }
+//     }
+//   }
+
+// ],
+
+//         /* PRODUCT SALES */
+
+//         productSales:[
+//           { $unwind:"$items" },
+//           {
+//             $group:{
+//               _id:"$items.menuId",
+//               name:{ $first:"$items.name" },
+//               qty:{ $sum:"$items.qty" }
+//             }
+//           }
+//         ]
+
+//       }
+//     }
+
+//   ])
+
+//   const data = dashboard[0] || {}
+
+//   const products = data.productSales || []
+
+//   const topSelling = [...products]
+//     .sort((a,b)=>b.qty-a.qty)
+//     .slice(0,5)
+
+//   const lowSelling = [...products]
+//     .sort((a,b)=>a.qty-b.qty)
+//     .slice(0,5)
+
+//   /* TODAY SALES SEPARATE */
+
+// const todayData = await Order.aggregate([
+
+// {
+//  $match:{
+//    franchiseId,
+//    status:"billed",
+//    createdAt:{
+//      $gte:today.start,
+//      $lte:today.end
+//    }
+//  }
+// },
+
+// { $unwind:"$items" },
+
+// {
+//  $group:{
+//    _id:null,
+//    todaySales:{ $sum:"$totalAmount" },
+//    todayCost:{
+//      $sum:{
+//        $multiply:["$items.costPrice","$items.qty"]
+//      }
+//    }
+//  }
+// },
+
+// {
+//  $project:{
+//    _id:0,
+//    todaySales:1,
+//    todayProfit:{
+//      $subtract:["$todaySales","$todayCost"]
+//    }
+//  }
+// }
+
+// ])
+
+//   return {
+
+//     summary: data.summary?.[0] || {
+//       totalSales:0,
+//       totalProfit:0
+//     },
+
+//     today: todayData?.[0] || {
+//       todaySales:0,
+//       todayProfit:0
+//     },
+
+//     products:{
+//       topSelling,
+//       lowSelling
+//     }
+
+//   }
+
+// }
+
 exports.getFranchiseDashboard = async (franchiseId, query) => {
 
   const now = new Date()
@@ -134,123 +335,139 @@ exports.getFranchiseDashboard = async (franchiseId, query) => {
 
   console.log("FILTER RANGE:", startDate, endDate)
 
-  const dashboard = await Order.aggregate([
+  /* DEBUG: Count matching bills */
+  const billCount = await Bill.countDocuments({
+    franchiseId,
+    paymentStatus: "paid",
+    createdAt: {
+      $gte: startDate,
+      $lte: endDate
+    }
+  });
+  
+  console.log(`📊 Bills matched: ${billCount}`);
 
-    {
-      $match:{
-        franchiseId,
-        status:"billed",
-        createdAt:{
-          $gte:startDate,
-          $lte:endDate
-        }
-      }
-    },
+  const billsDebug = await Bill.find({
+    franchiseId,
+    paymentStatus: "paid",
+    createdAt: {
+      $gte: startDate,
+      $lte: endDate
+    }
+  }).select("_id totalAmount items").lean();
+  
+  console.log("Bills data:", JSON.stringify(billsDebug, null, 2));
 
-    {
-      $facet:{
+  /* FETCH TODAY'S BILLS EARLY (needed for menuId collection) */
+  const todayBills = await Bill.find({
+    franchiseId,
+    paymentStatus: "paid",
+    createdAt: {
+      $gte: today.start,
+      $lte: today.end
+    }
+  }).lean();
 
-        /* SUMMARY */
-
-       summary: [
-
-  { $unwind: "$items" },
-
-  {
-    $group:{
-      _id:null,
-      totalSales:{ $sum:"$totalAmount" },
-      totalCost:{
-        $sum:{
-          $multiply:["$items.costPrice","$items.qty"]
-        }
+  /* COLLECT ALL UNIQUE MENU IDs FOR LOOKUP */
+  const menuIds = new Set();
+  
+  for (const bill of billsDebug) {
+    if (bill.items && Array.isArray(bill.items)) {
+      for (const item of bill.items) {
+        menuIds.add(item.menuId);
       }
     }
-  },
-
-  {
-    $project:{
-      _id:0,
-      totalSales:1,
-      totalCost:1,
-      totalProfit:{
-        $subtract:["$totalSales","$totalCost"]
+  }
+  
+  for (const bill of todayBills) {
+    if (bill.items && Array.isArray(bill.items)) {
+      for (const item of bill.items) {
+        menuIds.add(item.menuId);
       }
     }
   }
 
-],
+  /* FETCH MENU ITEMS WITH COST PRICES */
+  const menus = await Menu.find({
+    _id: { $in: Array.from(menuIds) }
+  }).select("_id costPrice").lean();
 
-        /* PRODUCT SALES */
+  const menuMap = {};
+  menus.forEach(menu => {
+    menuMap[menu._id] = menu.costPrice || 0;
+  });
 
-        productSales:[
-          { $unwind:"$items" },
-          {
-            $group:{
-              _id:"$items.menuId",
-              name:{ $first:"$items.name" },
-              qty:{ $sum:"$items.qty" }
-            }
-          }
-        ]
+  /* CALCULATE SUMMARY WITH JAVASCRIPT */
+  let totalSales = 0;
+  let totalCost = 0;
+  const productMap = {};
 
+  for (const bill of billsDebug) {
+    totalSales += bill.totalAmount || 0;
+    
+    if (bill.items && Array.isArray(bill.items)) {
+      for (const item of bill.items) {
+        // Get costPrice from item or lookup from menu
+        const costPrice = item.costPrice !== undefined ? item.costPrice : (menuMap[item.menuId] || 0);
+        const cost = costPrice * (item.qty || 0);
+        totalCost += cost;
+        
+        // Track product sales
+        const menuId = item.menuId;
+        if (!productMap[menuId]) {
+          productMap[menuId] = {
+            _id: menuId,
+            name: item.name,
+            qty: 0
+          };
+        }
+        productMap[menuId].qty += item.qty || 0;
       }
     }
+  }
 
-  ])
-
-  const data = dashboard[0] || {}
-
-  const products = data.productSales || []
-
+  const products = Object.values(productMap);
   const topSelling = [...products]
-    .sort((a,b)=>b.qty-a.qty)
-    .slice(0,5)
-
+    .sort((a,b) => b.qty - a.qty)
+    .slice(0, 5);
+  
   const lowSelling = [...products]
-    .sort((a,b)=>a.qty-b.qty)
-    .slice(0,5)
+    .sort((a,b) => a.qty - b.qty)
+    .slice(0, 5);
 
-  /* TODAY SALES SEPARATE */
+  const data = {
+    summary: [{
+      totalSales,
+      totalCost,
+      totalProfit: totalSales - totalCost
+    }],
+    productSales: products
+  };
 
-const todayData = await Order.aggregate([
+  console.log("DEBUG - Summary from calculation:", JSON.stringify(data.summary, null, 2));
 
-{
- $match:{
-   franchiseId,
-   status:"billed",
-   createdAt:{
-     $gte:today.start,
-     $lte:today.end
-   }
- }
-},
+  /* TODAY SALES CALCULATION (todayBills already fetched above) */
 
-{ $unwind:"$items" },
+  let todaySales = 0;
+  let todayCost = 0;
 
-{
- $group:{
-   _id:null,
-   todaySales:{ $sum:"$totalAmount" },
-   todayCost:{
-     $sum:{
-       $multiply:["$items.costPrice","$items.qty"]
-     }
-   }
- }
-},
+  for (const bill of todayBills) {
+    todaySales += bill.totalAmount || 0;
+    
+    if (bill.items && Array.isArray(bill.items)) {
+      for (const item of bill.items) {
+        // Get costPrice from item or lookup from menu
+        const costPrice = item.costPrice !== undefined ? item.costPrice : (menuMap[item.menuId] || 0);
+        const cost = costPrice * (item.qty || 0);
+        todayCost += cost;
+      }
+    }
+  }
 
-{
- $project:{
-   _id:0,
-   todaySales:1,
-   todayProfit:{
-     $subtract:["$todaySales","$todayCost"]
-   }
- }
-}
-
-])
+  const todayData = [{
+    todaySales,
+    todayProfit: todaySales - todayCost
+  }];
 
   return {
 
