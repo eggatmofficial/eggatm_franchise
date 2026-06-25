@@ -3,6 +3,8 @@ const Customer = require("../customers/customer.model");
 exports.checkPoints = async (body) => {
   const { mobileNumber } = body;
 
+  console.log("Checking points for mobile number:", mobileNumber);
+
   if (!mobileNumber) {
     throw new Error("Mobile number is required");
   }
@@ -11,7 +13,7 @@ exports.checkPoints = async (body) => {
     phone: mobileNumber,
   });
 
-  console.log(customer);
+  console.log("Customer found:", customer);
 
   if (!customer) {
     throw new Error("Customer not found");
