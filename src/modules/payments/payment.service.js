@@ -474,7 +474,7 @@ console.log("💰 Profit:", totalProfit);
 
   if (bill?.customerId) {
 
-    const points = Math.floor(bill.totalAmount / 20);
+    const points = Math.floor(bill.totalAmount / 10);
 
     const customer = await Customer.findByIdAndUpdate(
       bill.customerId,
