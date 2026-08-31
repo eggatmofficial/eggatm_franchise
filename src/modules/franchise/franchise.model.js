@@ -34,6 +34,20 @@ const franchiseSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    /* ===== CRM / LOYALTY CONFIG (editable by superadmin) ===== */
+
+    // ₹ amount a customer must spend to earn 1 loyalty point
+    pointsPerAmount: {
+      type: Number,
+      default: 20,
+    },
+
+    // loyalty points required for a customer to become reward eligible
+    rewardThreshold: {
+      type: Number,
+      default: 100,
+    },
   },
   { timestamps: true }
 );

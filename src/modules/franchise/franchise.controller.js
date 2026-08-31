@@ -62,6 +62,46 @@ getById = asyncHandler(async (req, res) => {
   }
   success(res, data);
 });
+
+/* ===== CRM: franchise-wise customer count (Admin Dashboard) ===== */
+getCustomerStats = asyncHandler(async (req, res) => {
+  const data = await franchiseService.getCustomerCountStats();
+  success(res, data);
+});
+
+/* ===== CRM: customers/phone numbers of one franchise ===== */
+getFranchiseCustomers = asyncHandler(async (req, res) => {
+  const data = await franchiseService.getFranchiseCustomers(req.params.id);
+  success(res, data);
+});
+
+/* ===== CRM: edit reward points config ===== */
+updateRewardsConfig = asyncHandler(async (req, res) => {
+  const data = await franchiseService.updateRewardsConfig(
+    req.params.id,
+    req.body
+  );
+  success(res, data, "Rewards config updated");
+});
+
+/* ===== CRM: download customers as excel ===== */
+exportCustomers = asyncHandler(async (req, res) => {
+  const workbook = await franchiseService.exportCustomersExcel(
+    req.query.franchiseId
+  );
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="customers-${Date.now()}.xlsx"`
+  );
+
+  await workbook.xlsx.write(res);
+  res.end();
+});
 }
 
 module.exports = new FranchiseController();

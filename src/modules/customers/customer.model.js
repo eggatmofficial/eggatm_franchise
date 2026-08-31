@@ -34,6 +34,11 @@ const customerSchema = new mongoose.Schema({
     default: 0
   },
 
+   isContact: {
+    type: Boolean,
+    default: false
+  },
+
 }, { timestamps: true });
 
 module.exports = mongoose.model("Customer", customerSchema);

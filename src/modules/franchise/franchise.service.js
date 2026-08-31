@@ -192,6 +192,7 @@
 
 const Franchise = require("./franchise.model");
 const User = require("../auth/auth.model");
+const Customer = require("../customers/customer.model");
 const { hashPassword } = require("../auth/auth.helper");
 const ROLES = require("../../common/constants/roles.constant");
 const { generateFranchiseCode } = require("../../common/utils/idGenerator.util");
@@ -367,6 +368,164 @@ class FranchiseService {
     // Return updated franchise with email
     const updatedFranchiseWithEmail = await this.getById(id);
     return updatedFranchiseWithEmail;
+  }
+
+  /* =====================================================
+     ✅ CRM: FRANCHISE-WISE CUSTOMER COUNT (Admin Dashboard)
+  ===================================================== */
+
+  async getCustomerCountStats() {
+
+    const franchises = await Franchise.find().sort({ createdAt: -1 }).lean();
+
+    const counts = await Customer.aggregate([
+      { $group: { _id: "$franchiseId", count: { $sum: 1 } } }
+    ]);
+
+    const countMap = {};
+    counts.forEach(c => { countMap[c._id] = c.count; });
+
+    const totalCustomers = counts.reduce((sum, c) => sum + c.count, 0);
+
+    const franchiseStats = franchises.map(f => ({
+      franchiseId: f._id,
+      name: f.name,
+      franchiseCode: f.franchiseCode,
+      phone: f.phone,
+      city: f.city,
+      isActive: f.isActive,
+      pointsPerAmount: f.pointsPerAmount ?? 100,
+      rewardThreshold: f.rewardThreshold ?? 90,
+      customerCount: countMap[f._id] || 0
+    }));
+
+    return {
+      totalFranchises: franchises.length,
+      totalCustomers,
+      franchises: franchiseStats
+    };
+  }
+
+  /* =====================================================
+     ✅ CRM: SHOW CUSTOMERS (PHONE NUMBERS) OF ONE FRANCHISE
+  ===================================================== */
+
+  async getFranchiseCustomers(id) {
+
+    const franchise = await Franchise.findById(id).lean();
+
+    if (!franchise) {
+      throw new Error("Franchise not found");
+    }
+
+    const customers = await Customer.find({ franchiseId: id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return { franchise, customers };
+  }
+
+  /* =====================================================
+     ✅ CRM: EDIT REWARD POINTS CONFIG (Editable rewards points)
+  ===================================================== */
+
+  async updateRewardsConfig(id, payload) {
+
+    const update = {};
+
+    if (payload.pointsPerAmount !== undefined) {
+      update.pointsPerAmount = Number(payload.pointsPerAmount);
+    }
+
+    if (payload.rewardThreshold !== undefined) {
+      update.rewardThreshold = Number(payload.rewardThreshold);
+    }
+
+    const franchise = await Franchise.findByIdAndUpdate(id, update, { new: true });
+
+    if (!franchise) {
+      throw new Error("Franchise not found");
+    }
+
+    return franchise;
+  }
+
+  /* =====================================================
+     ✅ CRM: DOWNLOAD CUSTOMERS AS EXCEL
+     - franchiseId provided  -> single sheet for that franchise
+     - franchiseId omitted   -> one sheet per franchise (all franchises)
+  ===================================================== */
+
+  async exportCustomersExcel(franchiseId) {
+
+    const ExcelJS = require("exceljs");
+    const workbook = new ExcelJS.Workbook();
+
+    const columns = [
+      { header: "Name", key: "name", width: 25 },
+      { header: "Phone", key: "phone", width: 18 },
+      { header: "Loyalty Points", key: "loyaltyPoints", width: 15 },
+      { header: "Reward Eligible", key: "rewardEligible", width: 15 },
+      { header: "Joined On", key: "createdAt", width: 20 },
+      { header: "Redeemed Rewards Count", key: "rewardsRedeemed", width: 30 },
+    ];
+
+    const addSheet = (name, customers) => {
+      const safeName = String(name || "Franchise")
+        .replace(/[\\/\?\*\[\]:]/g, "")
+        .substring(0, 31) || "Franchise";
+
+      const sheet = workbook.addWorksheet(safeName);
+      sheet.columns = columns;
+
+      customers.forEach(c => {
+        sheet.addRow({
+          name: c.name || "",
+          phone: c.phone,
+          loyaltyPoints: c.loyaltyPoints || 0,
+          rewardEligible: c.rewardEligible ? "Yes" : "No",
+          createdAt: c.createdAt
+            ? new Date(c.createdAt).toLocaleDateString()
+            : "",
+          rewardsRedeemed: c.rewardsRedeemed || 0,
+        });
+      });
+
+      sheet.getRow(1).font = { bold: true };
+    };
+
+    if (franchiseId) {
+
+      const franchise = await Franchise.findById(franchiseId).lean();
+
+      if (!franchise) {
+        throw new Error("Franchise not found");
+      }
+
+      const customers = await Customer.find({ franchiseId })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      addSheet(franchise.name, customers);
+
+    } else {
+
+      const franchises = await Franchise.find().lean();
+
+      if (!franchises.length) {
+        workbook.addWorksheet("No Data");
+      }
+
+      for (const franchise of franchises) {
+        const customers = await Customer.find({ franchiseId: franchise._id })
+          .sort({ createdAt: -1 })
+          .lean();
+
+        addSheet(franchise.name || franchise._id, customers);
+      }
+    }
+
+    return workbook;
   }
 }
 
