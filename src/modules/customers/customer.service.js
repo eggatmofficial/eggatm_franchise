@@ -113,6 +113,10 @@ exports.addCustomerPurchase = async ({
   const pointsEarned = Math.floor(amount / rate);
 
   let customer = await Customer.findOne({ phone });
+  // Ensure the phone belongs to the same franchise; otherwise reject
+  if (customer && customer.franchiseId && customer.franchiseId.toString() !== franchiseId.toString()) {
+    throw new Error('Phone number already registered under a different franchise');
+  }
 
   if (!customer) {
     customer = await Customer.create({
@@ -134,13 +138,14 @@ exports.addCustomerPurchase = async ({
 
   await customer.save();
 
+  // Return enriched data including franchise name for UI
   return {
     customer,
     pointsEarned,
-    billAmount: amount
+    billAmount: amount,
+    franchiseName: franchise.name || ""
   };
 };
-
 
 
 /* =====================================================
@@ -149,6 +154,10 @@ exports.addCustomerPurchase = async ({
 exports.addToContact = async ({ name, phone, franchiseId }) => {
 
   let customer = await Customer.findOne({ phone });
+  // Ensure the phone belongs to the same franchise; otherwise reject
+  if (customer && customer.franchiseId && customer.franchiseId.toString() !== franchiseId.toString()) {
+    throw new Error('Phone number already registered under a different franchise');
+  }
 
   if (customer) {
     let changed = false;
@@ -202,10 +211,60 @@ exports.listCustomers = async (franchiseId, search, contactsOnly) => {
     ];
   }
 
-  return Customer.find(query).sort({ createdAt: -1 });
+  const customers = await Customer.find(query)
+    .populate('franchiseId', 'name')
+    .sort({ createdAt: -1 })
+    .lean();
+  // Attach franchiseName for front‑end convenience
+  const enriched = customers.map(c => ({
+    ...c,
+    franchiseName: c.franchiseId?.name || ''
+  }));
+  return enriched;
 };
 
 exports.getCustomerById = async (customerId) => {
   return Customer.findById(customerId);
+};
+
+exports.sendCampaign = async ({ customerIds, messageTemplate, franchiseId }) => {
+  if (!customerIds || !Array.isArray(customerIds) || customerIds.length === 0) {
+    throw new Error("No customer IDs provided");
+  }
+
+  const franchise = await Franchise.findById(franchiseId).lean();
+  const fName = franchise?.name || "Main Branch";
+  const fPhone = franchise?.phone || "";
+
+  const customers = await Customer.find({
+    _id: { $in: customerIds },
+    franchiseId
+  }).lean();
+
+  const results = customers.map(customer => {
+    const name = customer.name ? customer.name.replace(/^ATM-/, "").trim() : "Customer";
+    const points = customer.loyaltyPoints ?? 0;
+
+    let formattedMsg = (messageTemplate || "")
+      .replace(/\{\{\s*Customer Name\s*\}\}/gi, name)
+      .replace(/\{\{\s*Franchise Name\s*\}\}/gi, fName)
+      .replace(/\{\{\s*Franchise Phone\s*\}\}/gi, fPhone)
+      .replace(/\{\{\s*Total Points\s*\}\}/gi, String(points));
+
+    return {
+      customerId: customer._id,
+      phone: customer.phone,
+      name: customer.name,
+      message: formattedMsg,
+      status: "sent",
+      sentAt: new Date()
+    };
+  });
+
+  return {
+    sentCount: results.length,
+    sentIds: results.map(r => r.customerId),
+    results
+  };
 };
 

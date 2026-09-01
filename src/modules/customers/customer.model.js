@@ -17,7 +17,7 @@ const customerSchema = new mongoose.Schema({
     index: true
   },
 
-  franchiseId: String,
+  franchiseId: { type: String, ref: "Franchise" },
 
   loyaltyPoints: {
     type: Number,

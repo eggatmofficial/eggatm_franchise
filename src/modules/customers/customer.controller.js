@@ -287,3 +287,24 @@ exports.toggleCustomerStatus = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.sendCampaign = async (req, res, next) => {
+  try {
+    const { customerIds, messageTemplate } = req.body;
+    const franchiseId = req.user.franchiseId;
+
+    const result = await service.sendCampaign({
+      customerIds,
+      messageTemplate,
+      franchiseId
+    });
+
+    res.json({
+      success: true,
+      message: `Direct campaign sent to ${result.sentCount} customers`,
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+};

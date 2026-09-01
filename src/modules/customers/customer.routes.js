@@ -21,6 +21,9 @@ router.post("/", auth, authorize(ROLES.FRANCHISE), controller.addCustomerPurchas
 // Add to contact -> save customer (phone/name) with no bill, free field
 router.post("/contact", auth, authorize(ROLES.FRANCHISE), controller.addToContact);
 
+// Direct campaign message dispatch to selected customers
+router.post("/campaign/send", auth, authorize(ROLES.FRANCHISE), controller.sendCampaign);
+
 /* =====================================================
    ✅ ADMIN: All customers across all franchises
 ===================================================== */
