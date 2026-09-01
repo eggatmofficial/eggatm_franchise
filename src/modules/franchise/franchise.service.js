@@ -199,38 +199,129 @@ const { generateFranchiseCode } = require("../../common/utils/idGenerator.util")
 
 class FranchiseService {
 
+  // async create(payload) {
+  //   // ✅ 1. Check for duplicate email BEFORE creating anything
+  //   const existingUser = await User.findOne({ email: payload.email });
+  //   if (existingUser) {
+  //     const err = new Error("A franchise with this email already exists. Please use a different email.");
+  //     err.statusCode = 400;
+  //     throw err;
+  //   }
+
+  //   const franchiseCode = await generateFranchiseCode();
+
+  //   // ✅ 2. Create franchise
+  //   const franchise = await Franchise.create({
+  //     franchiseCode,
+  //     name: payload.name,
+  //     ownerName: payload.ownerName,
+  //     phone: payload.phone,
+  //     address: payload.address,
+  //     city: payload.city,
+  //     state: payload.state,
+  //   });
+
+  //   let user;
+  //   try {
+  //     const password = await hashPassword(payload.password);
+
+  //     user = await User.create({
+  //       name: payload.ownerName,
+  //       email: payload.email,
+  //       password,
+  //       role: ROLES.FRANCHISE,
+  //       franchiseId: franchise._id,
+  //     });
+  //   } catch (userErr) {
+  //     // ✅ 3. Rollback: delete the franchise if user creation fails
+  //     await Franchise.findByIdAndDelete(franchise._id);
+
+  //     // Give a clean error message instead of raw Mongo error
+  //     if (userErr.code === 11000) {
+  //       const err = new Error("A franchise with this email already exists. Please use a different email.");
+  //       err.statusCode = 400;
+  //       throw err;
+  //     }
+  //     throw userErr;
+  //   }
+
+  //   const franchiseWithEmail = {
+  //     ...franchise.toObject(),
+  //     email: user.email,
+  //   };
+
+  //   return franchiseWithEmail;
+  // }
+
+
   async create(payload) {
-    const franchiseCode = await generateFranchiseCode();
+    const normalizedEmail = payload.email.trim().toLowerCase();
 
-    const franchise = await Franchise.create({
-      franchiseCode,
-      name: payload.name,
-      ownerName: payload.ownerName,
-      phone: payload.phone,
-      address: payload.address,
-      city: payload.city,
-      state: payload.state,
-    });
+    // 1. Check for duplicate email (case-insensitive)
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      const err = new Error("A franchise with this email already exists. Please use a different email.");
+      err.statusCode = 400;
+      throw err;
+    }
 
-    const password = await hashPassword(payload.password);
+    // 2. Start a Mongoose Session for atomic transactions
+    const session = await Franchise.startSession();
+    session.startTransaction();
 
-    const user = await User.create({
-      name: payload.ownerName,
-      email: payload.email,
-      password,
-      role: ROLES.FRANCHISE,
-      franchiseId: franchise._id,
-    });
+    try {
+      const franchiseCode = await generateFranchiseCode();
 
-    console.log("franchise", franchise);
-    
-    // Manually construct the response with email
-    const franchiseWithEmail = {
-      ...franchise.toObject(),
-      email: user.email
-    };
-    
-    return franchiseWithEmail;
+      // Create Franchise within transaction
+      const [franchise] = await Franchise.create(
+        [{
+          franchiseCode,
+          name: payload.name,
+          ownerName: payload.ownerName,
+          phone: payload.phone,
+          address: payload.address,
+          city: payload.city,
+          state: payload.state,
+        }],
+        { session }
+      );
+
+      const password = await hashPassword(payload.password);
+
+      // Create User within transaction
+      const [user] = await User.create(
+        [{
+          name: payload.ownerName,
+          email: normalizedEmail,
+          password,
+          role: ROLES.FRANCHISE,
+          franchiseId: franchise._id,
+        }],
+        { session }
+      );
+
+      // Commit transaction if both succeed
+      await session.commitTransaction();
+      session.endSession();
+
+      return {
+        ...franchise.toObject(),
+        email: user.email,
+      };
+    } catch (error) {
+      // Roll back all database operations on failure
+      await session.abortTransaction();
+      session.endSession();
+
+      // Intercept MongoDB duplicate key error (E11000)
+      if (error.code === 11000 || error.message.includes("E11000")) {
+        const customErr = new Error("A franchise with this email already exists. Please use a different email.");
+        customErr.statusCode = 400;
+        throw customErr;
+      }
+
+      throw error;
+    }
   }
 
   async getAll() {
