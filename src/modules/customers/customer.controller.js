@@ -1,4 +1,7 @@
 const service = require("./customer.service")
+const Franchise = require("../franchise/franchise.model")
+const Customer = require("./customer.model")
+
 
 exports.getRewardCustomers = async (req,res,next)=>{
   try {
@@ -141,6 +144,7 @@ exports.addToContact = async (req, res, next) => {
 
 
 
+
 /* =====================================================
    ✅ CRM: View -> list customers of this franchise
 ===================================================== */
@@ -156,6 +160,129 @@ exports.listCustomers = async (req, res, next) => {
 
     res.json({ success: true, data: customers });
 
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+/* =====================================================
+   ✅ ADMIN: List all customers across all franchises
+   with Franchise Name and Code
+===================================================== */
+
+exports.listAllCustomersForAdmin = async (req, res, next) => {
+  try {
+    const { search, franchiseId } = req.query;
+
+    const query = {};
+    if (franchiseId) {
+      query.franchiseId = franchiseId;
+    }
+
+    if (search) {
+      query.$or = [
+        { phone: { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const customers = await Customer.find(query).sort({ createdAt: -1 });
+    const franchises = await Franchise.find().lean();
+
+    const franchiseMap = {};
+    franchises.forEach((f) => {
+      franchiseMap[f._id] = f;
+    });
+
+    const enrichedCustomers = customers.map((c) => {
+      const doc = c.toObject();
+      const f = franchiseMap[doc.franchiseId];
+      return {
+        ...doc,
+        franchiseName: f?.name || "Unknown Franchise",
+        franchiseCode: f?.franchiseCode || "—",
+        franchiseCity: f?.city || "—"
+      };
+    });
+
+    const totalCustomers = customers.length;
+
+    res.json({
+      success: true,
+      data: {
+        customers: enrichedCustomers,
+        franchises: franchises.map((f) => ({
+          _id: f._id,
+          name: f.name,
+          franchiseCode: f.franchiseCode
+        })),
+        stats: {
+          totalCustomers,
+          totalFranchises: franchises.length
+        }
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.updateCustomer = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, phone } = req.body;
+    
+    let customer = await Customer.findById(id);
+    if (!customer) {
+      return res.status(404).json({ success: false, message: "Customer not found" });
+    }
+    
+    // Check if phone is being changed and if it already exists
+    if (phone && phone !== customer.phone) {
+      const existing = await Customer.findOne({ phone });
+      if (existing) {
+        return res.status(400).json({ success: false, message: "Phone number already exists" });
+      }
+    }
+    
+    if (name !== undefined) customer.name = name;
+    if (phone !== undefined) customer.phone = phone;
+    
+    await customer.save();
+    
+    res.json({ success: true, message: "Customer updated successfully", data: customer });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.deleteCustomer = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const customer = await Customer.findByIdAndDelete(id);
+    if (!customer) {
+      return res.status(404).json({ success: false, message: "Customer not found" });
+    }
+    res.json({ success: true, message: "Customer deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.toggleCustomerStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const customer = await Customer.findById(id);
+    if (!customer) {
+      return res.status(404).json({ success: false, message: "Customer not found" });
+    }
+    
+    customer.isActive = !customer.isActive;
+    await customer.save();
+    
+    res.json({ success: true, message: "Customer status toggled", data: customer });
   } catch (err) {
     next(err);
   }

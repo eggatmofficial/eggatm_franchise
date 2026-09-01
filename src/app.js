@@ -1,8 +1,12 @@
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
+const dns = require("dns");
 const routes = require("./routes/index.routes");
 const errorMiddleware = require("./common/middleware/error.middleware");
+
+dns.setDefaultResultOrder("ipv4first");
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 const app = express();
 

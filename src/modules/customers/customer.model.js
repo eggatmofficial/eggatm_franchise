@@ -34,10 +34,20 @@ const customerSchema = new mongoose.Schema({
     default: 0
   },
 
-   isContact: {
+  isContact: {
     type: Boolean,
     default: false
   },
+
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+
+  cardUrl: {
+    type: String,
+    default: null
+  }
 
 }, { timestamps: true });
 

@@ -204,3 +204,8 @@ exports.listCustomers = async (franchiseId, search, contactsOnly) => {
 
   return Customer.find(query).sort({ createdAt: -1 });
 };
+
+exports.getCustomerById = async (customerId) => {
+  return Customer.findById(customerId);
+};
+
