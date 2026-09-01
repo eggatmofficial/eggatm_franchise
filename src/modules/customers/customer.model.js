@@ -47,6 +47,11 @@ const customerSchema = new mongoose.Schema({
   cardUrl: {
     type: String,
     default: null
+  },
+
+  lastVisitDate: {
+    type: Date,
+    default: null
   }
 
 }, { timestamps: true });
