@@ -46,6 +46,27 @@ exports.getRewardsDashboard = async (franchiseId) => {
 
 
 
+// exports.resetCustomerReward = async (customerId) => {
+
+//   const customer = await Customer.findById(customerId);
+
+//   if (!customer)
+//     throw new Error("Customer not found");
+
+//   /* ✅ Reset loyalty */
+//   customer.loyaltyPoints = 0;
+//   customer.rewardEligible = false;
+
+//   /* ✅ Increase redeemed counter */
+//   customer.rewardsRedeemed =
+//     (customer.rewardsRedeemed || 0) + 1;
+
+//   await customer.save();
+
+//   return customer;
+// };
+
+
 exports.resetCustomerReward = async (customerId) => {
 
   const customer = await Customer.findById(customerId);
@@ -53,9 +74,16 @@ exports.resetCustomerReward = async (customerId) => {
   if (!customer)
     throw new Error("Customer not found");
 
-  /* ✅ Reset loyalty */
-  customer.loyaltyPoints = 0;
-  customer.rewardEligible = false;
+  // Fetch the franchise's rewardThreshold (default 100 if not set)
+  const franchise = await Franchise.findById(customer.franchiseId).select("rewardThreshold");
+  const threshold = franchise?.rewardThreshold || 100;
+
+  // ✅ Deduct only the threshold — keep remaining points
+  const remaining = Math.max(0, (customer.loyaltyPoints || 0) - threshold);
+  customer.loyaltyPoints = remaining;
+
+  // ✅ Re-evaluate eligibility based on remaining points
+  customer.rewardEligible = remaining >= threshold;
 
   /* ✅ Increase redeemed counter */
   customer.rewardsRedeemed =
@@ -65,7 +93,6 @@ exports.resetCustomerReward = async (customerId) => {
 
   return customer;
 };
-
 
 exports.checkCustomerEligibility = async (
   mobile,
